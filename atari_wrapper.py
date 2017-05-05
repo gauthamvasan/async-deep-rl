@@ -20,6 +20,9 @@ class Atari_Environment():
 
         self.agent_history = deque()
 
+    def render(self):
+        self.env.render()
+
     def reset(self):
         # Resets the environment and clears agent history
         self.agent_history = deque()
