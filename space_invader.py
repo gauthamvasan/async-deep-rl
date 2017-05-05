@@ -6,14 +6,15 @@ import math
 import gym
 import cv2
 from atari_wrapper import Atari_Environment
-from build_model import build_network
+from build_model import build_network, sequential_network
 from keras import backend as K
 import tensorflow as tf
 
 
 def initialize_graph_ops(num_actions):
     state = tf.placeholder("float", [None, 4, 84, 84])
-    q_network = build_network(6)
+    #q_network = build_network(6)
+    q_network = sequential_network(6)
     network_params = q_network.trainable_weights
     q_values = q_network(state)
 
