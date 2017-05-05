@@ -24,7 +24,7 @@ I highly recommend going through atleast a few of these links. They're highly us
 * [V Mnih et al. 2015 - Human-level control through deep reinforcement learning](https://www.nature.com/nature/journal/v518/n7540/pdf/nature14236.pdf)
 * Optional, but one of the biggest successes of DQN -  [Playing Atari with Deep Reinforcement Learning](https://www.cs.toronto.edu/~vmnih/docs/dqn.pdf)
 
-### Blog posts, video lectures
+### Blog posts, Video lectures
 * [Simple Reinforcement Learning with Tensorflow Part 8: Asynchronous Actor-Critic Agents (A3C)](https://medium.com/emergent-future/simple-reinforcement-learning-with-tensorflow-part-8-asynchronous-actor-critic-agents-a3c-c88f72a5e9f2)
 * [David Silver's "Deep Reinforcement Learning" lecture (Video)](http://videolectures.net/rldm2015_silver_reinforcement_learning/)
 * [Nervana's Demystifying Deep Reinforcement Learning blog post](http://www.nervanasys.com/demystifying-deep-reinforcement-learning/)
