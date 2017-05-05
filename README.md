@@ -8,20 +8,21 @@ I'm running my initial experiments on the OpenAI Gym Atari Environment Space-Inv
 
 ## Requirements
 * [tensorflow](https://www.tensorflow.org/versions/r0.9/get_started/os_setup.html)
-* [gym](https://github.com/openai/gym#installation)
-* [gym's atari environment] (https://github.com/openai/gym#atari)
+* [OpenAI Gym](https://github.com/openai/gym#installation)
+* [OpenAI Gym's Atari Environment] (https://gym.openai.com/envs#atari)
 * [Keras](https://keras.io/)
 
 ## Resources
-I highly recommend going through atleast a few of these links. I found these super useful as general background materials for deep Reinforcement Learning (RL):
+I highly recommend going through atleast a few of these links. They're highly useful and serve as general background material for Deep Reinforcement Learning.
 
 ### Keras + Tensorflow 
 * [Using Keras as a part of a Tensorflow Workflow](https://blog.keras.io/keras-as-a-simplified-interface-to-tensorflow-tutorial.html)
-* [Keras functional API Guide](https://keras.io/getting-started/functional-api-guide/)
+* To understand model definition - [Keras functional API Guide](https://keras.io/getting-started/functional-api-guide/)
 
 ### Conference papers, Journal articles, etc.
+* [V Mnih et al. 2016 - Asynchronous Methods for Deep Reinforcement Learning](https://arxiv.org/pdf/1602.01783.pdf)
 * [V Mnih et al. 2015 - Human-level control through deep reinforcement learning](https://www.nature.com/nature/journal/v518/n7540/pdf/nature14236.pdf)
-* Optional but one of the biggest successes of DQN [Playing Atari with Deep Reinforcement Learning](https://www.cs.toronto.edu/~vmnih/docs/dqn.pdf)
+* Optional, but one of the biggest successes of DQN -  [Playing Atari with Deep Reinforcement Learning](https://www.cs.toronto.edu/~vmnih/docs/dqn.pdf)
 
 ### Blog posts, video lectures
 * [Simple Reinforcement Learning with Tensorflow Part 8: Asynchronous Actor-Critic Agents (A3C)](https://medium.com/emergent-future/simple-reinforcement-learning-with-tensorflow-part-8-asynchronous-actor-critic-agents-a3c-c88f72a5e9f2)
