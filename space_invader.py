@@ -46,7 +46,7 @@ flags['eval_dir'] = '~/Downloads/tmp/' # Directory to store gym evaluation
 flags['checkpoint_file'] = "/filename.ckpt"
 
 # Testing & Rendering
-flags['render_training'] = True, # If true, have gym render environments during training
+flags['render_training'] = False, # If true, have gym render environments during training
 flags['testing'] = False # If true, run gym evaluation
 
 flags['num_eval_episodes'] = 100 # Number of episodes to run gym evaluation
@@ -224,7 +224,7 @@ def train(session, num_actions, graph_ops, saver):
 
     # Show the agents training and write summary statistics
     last_summary_time = 0
-    while T < flags["T_max"]:
+    while T <= flags["T_max"]:
         if flags["render_training"]:
             for env in envs:
                 env.render()
