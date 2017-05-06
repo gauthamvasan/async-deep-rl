@@ -16,40 +16,39 @@ T = 0   # Global counter
 flags = {}
 
 # Choose the Gym environment you intend to run
-flags['experiment'] = 'async_dqn_1step_space_invader' # Name of the experiment
-flags['game'] = 'SpaceInvaders-v0' # OpenAI Gym handle/name for the game
+flags['experiment'] = 'async_dqn_1step_space_invader'   # Name of the experiment
+flags['game'] = 'SpaceInvaders-v0'                      # OpenAI Gym handle/name for the game
 
 # Algorithm specific flags and hyper-parameters
-flags['num_actor_threads'] = 8 # Number of concurrent actor-learner threads to use during training.
-flags['T_max'] = 80000000      # Number of training frames/steps
-flags['async_update_frequency'] = 5 # Frequency with which each actor learner thread does an async gradient update
-flags['target_network_update_frequency'] = 40000 # Update and Reset the target network every n timesteps
-flags['learning_rate'] = 0.0001   # Initial learning rate
+flags['num_actor_threads'] = 8                      # Number of concurrent actor-learner threads to use during training.
+flags['T_max'] = 80000000                           # Number of training frames/steps
+flags['async_update_frequency'] = 5                 # Frequency with which each actor learner thread does an async gradient update
+flags['target_network_update_frequency'] = 40000    # Update and Reset the target network every n timesteps
+flags['learning_rate'] = 0.0001                     # Initial learning rate
 flags['gamma'] = 0.99 # Discount rate for the reward
 
 # Pre-processing parameters (The RGB image is pre-processed to fit computational requirements)
-flags['scaled_width'] =  84    # Scale screen to this width.
-flags['scaled_height'] = 84    # Scale screen to this height.
-flags['agent_history_length'] = 4 # Use this number of recent screens as the environment state.
+flags['scaled_width'] =  84                         # Scale screen to this width.
+flags['scaled_height'] = 84                         # Scale screen to this height.
+flags['agent_history_length'] = 4                   # Use this number of recent screens as the environment state.
 
 # Sample final epsilon from the value listed below
 flags["final_epsilon_choices"] = [0.1, 0.01, 0.5]
 flags["final_epsilon_choice_probabilities"] = [0.4, 0.3, 0.3]
-flags['anneal_epsilon_timesteps'] = 4000000 # 'Number of timesteps to anneal epsilon.
+flags['anneal_epsilon_timesteps'] = 4000000                             # 'Number of timesteps to anneal epsilon.
 
 # Summary writer
-flags['summary_dir'] = '~/Downloads/tmp/summaries' # Directory for storing tensorboard summaries
+flags['summary_dir'] = '~/Downloads/tmp/summaries'                                  # Directory for storing tensorboard summaries
 flags['checkpoint_dir'] = '~/Downloads/tmp/checkpoints' + "/" + flags["experiment"] # Directory for storing model checkpoints
-flags['summary_interval'] = 5 # Save training summary to file every n seconds (rounded up to statistics interval)
-flags['checkpoint_interval'] = 600 # Checkpoint the model (i.e. save the parameters) every n seconds (rounded up to statistics interval.)
-flags['eval_dir'] = '~/Downloads/tmp/' # Directory to store gym evaluation
-flags['checkpoint_file'] = "/filename.ckpt"
+flags['summary_interval'] = 5                                                       # Save training summary to file every n seconds (rounded up to statistics interval)
+flags['checkpoint_interval'] = 600                                                  # Save the parameters every n seconds
+flags['eval_dir'] = '~/Downloads/tmp/'                                              # Directory to store gym evaluation
+flags['checkpoint_file'] = "/filename.ckpt"                                         # Choose which weights to load
 
 # Testing & Rendering
-flags['render_training'] = False, # If true, have gym render environments during training
-flags['testing'] = False # If true, run gym evaluation
-
-flags['num_eval_episodes'] = 100 # Number of episodes to run gym evaluation
+flags['render_training'] = False                            # If True, have gym render environments during training
+flags['testing'] = False                                    # If True, run gym evaluation
+flags['num_eval_episodes'] = 100                            # Number of episodes to run gym evaluation
 
 def initialize_graph_ops(num_actions):
 
@@ -226,6 +225,7 @@ def train(session, num_actions, graph_ops, saver):
     last_summary_time = 0
     while T <= flags["T_max"]:
         if flags["render_training"]:
+            print "Something failed"
             for env in envs:
                 env.render()
         now = time.time()
