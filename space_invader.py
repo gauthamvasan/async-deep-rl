@@ -20,7 +20,7 @@ flags['experiment'] = 'async_dqn_1step_space_invader'   # Name of the experiment
 flags['game'] = 'SpaceInvaders-v0'                      # OpenAI Gym handle/name for the game
 
 # Algorithm specific flags and hyper-parameters
-flags['num_actor_threads'] = 8                      # Number of concurrent actor-learner threads to use during training.
+flags['num_actor_threads'] = 16                      # Number of concurrent actor-learner threads to use during training.
 flags['T_max'] = 80000000                           # Number of training frames/steps
 flags['async_update_frequency'] = 5                 # Frequency with which each actor learner thread does an async gradient update
 flags['target_network_update_frequency'] = 40000    # Update and Reset the target network every n timesteps
@@ -200,15 +200,19 @@ def actor_learner(thread_id, env, session, graph_ops, num_actions, summary_ops, 
 
 
 def train(session, num_actions, graph_ops, saver):
-    global T
+    global T    
+    summary_placeholders, update_ops, summary_op = initialize_summary_ops()
+    
+    # Initialize tensorflow variables
+    session.run(tf.initialize_all_variables())
+        
     session.run(graph_ops["async_update_target_network"])
     envs = [Atari_Environment(gym.make('SpaceInvaders-v0'),flags["scaled_width"],flags["scaled_height"],
                               flags["agent_history_length"]) for i in range(flags["num_actor_threads"])]
 
-    summary_placeholders, update_ops, summary_op = initialize_summary_ops()
+    
 
-    # Initialize tensorflow variables
-    session.run(tf.initialize_all_variables())
+    
     summary_save_path = flags["summary_dir"] + "/" + flags["experiment"]
     writer = tf.summary.FileWriter(summary_save_path, session.graph)
     if not os.path.exists(flags["checkpoint_dir"]):
@@ -238,8 +242,6 @@ def train(session, num_actions, graph_ops, saver):
         t.join()
 
 def evaluation(session, num_actions, graph_ops, saver):
-    g = tf.Graph()
-
     saver.restore(session, flags['checkpoint_dir']+flags['checkpoint_file'])
     print "Restored model weights from ", flags['checkpoint_dir']
     monitor_env = gym.make(flags["game"])
