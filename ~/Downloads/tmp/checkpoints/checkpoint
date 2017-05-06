@@ -1,0 +1,2 @@
+model_checkpoint_path: "async_dqn_1step_space_invader"
+all_model_checkpoint_paths: "async_dqn_1step_space_invader"
