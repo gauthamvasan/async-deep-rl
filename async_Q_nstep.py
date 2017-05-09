@@ -70,16 +70,35 @@ def initialize_graph_ops(num_actions):
     target_q_values = target_q_network(target_state)
 
     # Op for async updates of target network with shared/online network weights
-    async_update_target_network = [target_network_params[i].assign(network_params[i]) for i in
-                                   range(len(target_network_params))]
+    async_update_target_network = [target_network_params[i].assign(network_params[i]) for i in range(len(target_network_params))]
 
     # Cost and gradient update ops
-    y = tf.placeholder("float", [None])  # Target
-    action_values = tf.placeholder("float", [None])  # Target
+    y = tf.placeholder("float", [None])                       # Target
+    actions_list = tf.placeholder(tf.int32, [None, None])     # 2D list consisting of sample number (in th batch) and the action chosen
+    action_values = tf.gather_nd(q_values,actions_list)       # Gather the Q values
 
     cost = tf.reduce_mean(tf.square(y - action_values))
     optimizer = tf.train.RMSPropOptimizer(flags["learning_rate"])
-    gradient_update = optimizer.minimize(cost, var_list=network_params)
+    gradient_update = optimizer.minimize(cost,var_list=network_params)
+
+    # Thread networks
+    thread_networks = []
+    thread_network_params = []
+    thread_q_values = []
+    copy_network_to_thread = []
+    thread_action_values = []
+    thread_costs = []
+    thread_gradient_updates = []
+    for i in range(flags["num_actor_threads"]):
+        thread_networks.append(sequential_network(num_actions, flags['agent_history_length'], flags['scaled_width'], flags['scaled_height']) )
+        thread_network_params.append(thread_networks[i].trainable_weights)
+        thread_q_values.append(thread_networks[i](state))
+        copy_network_to_thread.append([thread_networks[i][j].assign(network_params[j]) for j in range(len(thread_networks[i]))])
+        thread_action_values.append(tf.gather_nd(thread_q_values[i],actions_list))
+        thread_costs.append(tf.reduce_mean(tf.square(y - action_values)))
+        thread_gradient_updates.append(optimizer.minimize(thread_costs[i],var_list=thread_network_params[i]))
+
+
 
     graph_ops = {"q_values": q_values,
                  "state": state,
@@ -87,13 +106,17 @@ def initialize_graph_ops(num_actions):
                  "target_q_values": target_q_values,
                  "async_update_target_network": async_update_target_network,
                  "action_values": action_values,
+                 "action_list": actions_list,
                  "y": y,
                  "cost": cost,
                  "optimizer": optimizer,
                  "gradient_update": gradient_update,
-                 "global_param_theta": network_params,
-                 "shared_q_network": shared_q_network,
+                 "thread_networks": thread_networks,
+                 "thread_network_params": thread_network_params,
+                 "thread_q_values": thread_q_values,
+                 "copy_network_to_thread": copy_network_to_thread,
                  }
+
 
     return graph_ops
 
@@ -133,10 +156,6 @@ def actor_learner(thread_id, env, session, graph_ops, num_actions, summary_ops, 
     final_epsilon = np.random.choice(flags["final_epsilon_choices"], p=flags["final_epsilon_choice_probabilities"])
     epsilon_anneal_factor = (epsilon - final_epsilon) / flags['anneal_epsilon_timesteps']
 
-    state_mem = []
-    action_mem = []
-    reward_mem = []
-    y_mem = []
     action_set = np.arange(num_actions)
 
     # For n-step Q learning, there is an additional set of network weights maintained for the thread
@@ -146,11 +165,22 @@ def actor_learner(thread_id, env, session, graph_ops, num_actions, summary_ops, 
                                range(len(thread_network_params))]
     thread_q_values = thread_network(graph_ops["state"])
 
+    # Cost and gradient update ops
+    y = tf.placeholder("float", [None])  # Target
     actions_list = tf.placeholder(tf.int32, [None,
                                              None])  # 2D list consisting of sample number (in th batch) and the action chosen
-    grad_action_values = tf.gather_nd(thread_q_values, actions_list)  # Gather the Q values
+    action_values = tf.gather_nd(thread_q_values, actions_list)  # Gather the Q values
 
-    session.run(tf.variables_initializer([actions_list]))
+    cost = tf.reduce_mean(tf.square(y - action_values))
+    optimizer = tf.train.RMSPropOptimizer(flags["learning_rate"])
+    gradient_updates = optimizer.minimize(cost, var_list=thread_network_params)
+
+    async_update_shared_network = [graph_ops["global_param_theta"][i].assign(thread_network_params[i]) for i in
+                               range(len(thread_network_params))]
+
+
+
+    session.run(tf.variables_initializer([y, actions_list]))
 
 
     while T < flags["T_max"]:
@@ -219,11 +249,10 @@ def actor_learner(thread_id, env, session, graph_ops, num_actions, summary_ops, 
 
             y_mem = y_mem.reverse()
 
-            pred_Q_vals = grad_action_values.eval(session=session, feed_dict={graph_ops["state"]: state_mem,
-                                                                                actions_list: action_mem,})
-
-            session.run(graph_ops["gradient_update"], feed_dict={graph_ops["y"]: y_mem,
-                                                                 graph_ops["action_values"]: pred_Q_vals,})
+            session.run(gradient_updates, feed_dict={y: y_mem,
+                                                     graph_ops["state"]: state_mem,
+                                                     actions_list: action_mem})
+            session.run(async_update_shared_network)
 
             # Anneal epsilon
             if epsilon > final_epsilon:
