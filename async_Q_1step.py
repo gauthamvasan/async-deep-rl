@@ -35,7 +35,7 @@ flags['agent_history_length'] = 4                   # Use this number of recent 
 # Sample final epsilon from the value listed below
 flags["final_epsilon_choices"] = [0.1, 0.01, 0.5]
 flags["final_epsilon_choice_probabilities"] = [0.4, 0.3, 0.3]
-flags['anneal_epsilon_timesteps'] = 4000000                             # 'Number of timesteps to anneal epsilon.
+flags['anneal_epsilon_timesteps'] = 4000000//flags['num_actor_threads']  # 'Number of timesteps to anneal epsilon.
 
 # Summary writer
 flags['summary_dir'] = '/tmp/summaries'                                  # Directory for storing tensorboard summaries
