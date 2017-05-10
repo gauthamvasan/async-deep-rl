@@ -70,7 +70,7 @@ To launch the tensorboard:
 ```
 tensorboard --logdir /tmp/summaries/async_dqn_n_step_space_invader/
 ``` 
-where  __async_dqn_n_step_space_invader__ is the name of the experiment. The summary and checkpoint directories, hyper-parameters and meta-data(including name of the expt) are all defined in a dictionary called **flags**. 
+where  __async_dqn_n_step_space_invader__ is the name of the experiment. The summary and checkpoint directories, hyper-parameters and meta-data(including name of the expt) are all defined as parser-arguments/flags.
 
 ### Parser arguments
 I'm using "tf.app.flags" similar to [@coreylynch's](https://github.com/coreylynch/async-rl) implementation. But there is nearly zero documentation for it. For more information, you can look at what's going on in [tensorflow/python/platform/flags.py](https://github.com/tensorflow/tensorflow/blob/master/tensorflow/python/platform/flags.py). It's really just a thin wrapper around argparse.ArgumentParser(). In particular, all of the DEFINE_* end up adding arguments to a _global_parser, for example, through this helper function:
@@ -84,23 +84,25 @@ def _define_helper(flag_name, default_value, docstring, flagtype):
                                 type=flagtype)
 ``` 
 
+
+
 ## General notes on both scripts 
-This script contains all the modules relevant to training and evaluating the network. It's a headache to use multiple graphs on tensorflow. Hence, I define all the necessary graph operations in the function **initialize_graph_ops(args)**. It's saves a lot of trouble if you can track the learning progress over time. Hence, all necessary ops for the tensorboard are initialized in **initalize_summary_ops(args)**. 
+This script contains all the modules relevant to training and evaluating the network. It's a headache to use multiple graphs on tensorflow. Hence, I define all the necessary graph operations in the function **initialize_graph_ops(args)**. It's saves a lot of trouble if you can track the learning progress over time. All necessary ops for the tensorboard are initialized in **initalize_summary_ops(args)**. 
 
 The function **actor_learner(args)** is the code for each actor-learner thread as defined in the paper. The **train(args)** function initializes an atari environment for each thread and starts running the threads in parallel. I haven't implemented it with thread-locking or multi-processing yet. The current implementation is a bare bones version using the basic **threading** module in python. By default, flags to "render_environment" are set to False. 
 
 For evaluation, set the "testing" flag to True. It'll load the checkpoint file (.ckpt file) specified in the "checkpoint_file" flag. 
   
 ### Notes & Comments on the Asynchronous n-step Q-learner 
-Key featurws of the asynchronous n-step Q-learner:
+Key features of the asynchronous n-step Q-learner:
 * Each thread maintains its own copy of the global shared parameter vector &theta; 
 * As the name suggests, it's an n-step return, which means we rollout state-action pairs until 'n' steps before we use this data to learn/update the weights. 
 * At the start of the main loop, synchronize thread-specific parameters &theta;' = &theta;
 * A key point to keep in mind is that we calculate gradients based on the thread-specific network &theta;'. But these gradients are applied to the global shared network &theta;.
-* Usually, we can compute and apply gradients in tensorflow using the **optimizer.minimize(loss,var_list)** function. This basically computes the gradients and applies it to the relevant variable. Instead we have a workaround in this case (pseudo-code for each thread):
+* Usually, we can compute and apply gradients in tensorflow using the **optimizer.minimize(loss,var_list)** function. This basically computes the gradients and applies it to the relevant variables. Instead we have a workaround in this case (pseudo-code for each thread):
 
 ```python
-optimizer = tf.train.RMSPropOptimizer(flags['learning_rate'], decay=flags['decay_rate_RMSProp'])
+optimizer = tf.train.RMSPropOptimizer(flags.learning_rate, decay=flags.decay_rate_RMSProp)
 
 thread_network_params = thread_network.trainable_weights
 
@@ -112,9 +114,9 @@ grads_and_vars = zip(clipped_grads, vars)
 async_update_shared_network = optimizer.apply_gradients(grads_and_vars)
 ``` 
 
-* The target for the network output is a part of the TD Error/Bellman Error - reward + maxQ. This maxQ is calculated using the global shared target parameter vector &theta;-
+* The target for the network output is a part of the TD Error/Bellman Error = reward + maxQ. This maxQ is calculated using the global shared target parameter vector &theta;-
 * This global shared target parameter vector &theta;- is updates every 40,000 frames. 
-* Note: The authors of the paper mention that thet clip the gradients. But they haven't mentioned their clipping threshold. I have just used a random value here. Only a complete parameter search would elaborate its effect. 
+* [Note] The authors of the paper mention that they clip the gradients. But they haven't mentioned their clipping threshold. I have just used a random value (+10) here. Only a complete parameter sweep would elaborate its effect. 
 * All rewards are clipped between (-1,1). As much as I hate losing information about the difference in magnitude of rewards, this has worked pretty well in Atari learners. 
 * The values of &epsilon; were annealed from 1 to 0.1/0.01/0.5 over 4 million frames. The final &epsilon; rate was sampled from a probability distribution p = [0.4, 0.3, 0.3]
 respectively over the first four million frames. 
