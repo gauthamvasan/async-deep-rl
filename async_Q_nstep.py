@@ -21,14 +21,16 @@ flags['experiment'] = 'async_dqn_n_step_space_invader'  # Name of the experiment
 flags['game'] = 'SpaceInvaders-v0'  # OpenAI Gym handle/name for the game
 
 # Algorithm specific flags and hyper-parameters
-flags['num_actor_threads'] = 8  # Number of concurrent actor-learner threads to use during training.
-flags['T_max'] = 80000000  # Number of training frames/steps
+flags['num_actor_threads'] = 16  # Number of concurrent actor-learner threads to use during training.
+flags['T_max'] = 20000000  # Number of training frames/steps
 flags['async_update_frequency'] = 32  # Frequency with which each actor learner thread does an async gradient update
 flags['target_network_update_frequency'] = 40000  # Update and Reset the target network every n timesteps
-flags['learning_rate'] = 0.0001  # Initial learning rate
+flags['learning_rate'] = 1*math.pow(10,-4)  # Initial learning rate
+flags['decay_rate_RMSProp'] = 0.99
 flags['gamma'] = 0.99  # Discount rate for the reward
 flags['num_steps_Q'] = 5    # Denoted as t_max in the paper - Basically the value of 'n' in n-step return
-flags["clip_norm"] = 1.0
+flags["clip_norm"] = 10.0
+
 
 # Pre-processing parameters (The RGB image is pre-processed to fit computational requirements)
 flags['scaled_width'] = 84  # Scale screen to this width.
@@ -79,7 +81,7 @@ def initialize_graph_ops(num_actions):
     action_values = tf.gather_nd(q_values,actions_list)       # Gather the Q values
 
     cost = tf.reduce_mean(tf.square(y - action_values))
-    optimizer = tf.train.RMSPropOptimizer(flags["learning_rate"])
+    optimizer = tf.train.RMSPropOptimizer(flags["learning_rate"], decay=flags['decay_rate_RMSProp'])
     gradient_update = optimizer.minimize(cost,var_list=network_params)
 
     # Thread networks
@@ -197,7 +199,7 @@ def actor_learner(thread_id, env, session, graph_ops, num_actions, summary_ops, 
             session.run(copy_network_to_thread)
             t_start = t
 
-            while t - t_start < flags["num_steps_Q"] or not done:
+            while t - t_start < flags["num_steps_Q"] and not done:
                 q_vals = thread_q_values.eval(session=session, feed_dict={graph_ops["state"]: [current_state]})
                 action = sample_action_epsilon_greedy(q_vals, action_set, epsilon)
 
@@ -248,6 +250,7 @@ def actor_learner(thread_id, env, session, graph_ops, num_actions, summary_ops, 
 
             y_mem.reverse()
 
+            # Async update of global network
             session.run(async_update_shared_network, feed_dict={graph_ops["y"]: y_mem,
                                                                 graph_ops["state"]: state_mem,
                                                                 graph_ops["action_list"]: action_mem})
