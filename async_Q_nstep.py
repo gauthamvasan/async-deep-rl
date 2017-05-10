@@ -21,15 +21,15 @@ flags['experiment'] = 'async_dqn_n_step_space_invader'  # Name of the experiment
 flags['game'] = 'SpaceInvaders-v0'  # OpenAI Gym handle/name for the game
 
 # Algorithm specific flags and hyper-parameters
-flags['num_actor_threads'] = 8  # Number of concurrent actor-learner threads to use during training.
+flags['num_actor_threads'] = 16  # Number of concurrent actor-learner threads to use during training.
 flags['T_max'] = 20000000  # Number of training frames/steps
 flags['async_update_frequency'] = 32  # Frequency with which each actor learner thread does an async gradient update
 flags['target_network_update_frequency'] = 40000  # Update and Reset the target network every n timesteps
-flags['learning_rate'] = 1*math.pow(10,-5)  # Initial learning rate
+flags['learning_rate'] = 1*math.pow(10,-4)  # Initial learning rate
 flags['decay_rate_RMSProp'] = 0.99
 flags['gamma'] = 0.99  # Discount rate for the reward
 flags['num_steps_Q'] = 5    # Denoted as t_max in the paper - Basically the value of 'n' in n-step return
-flags["clip_norm"] = 1.0
+flags["clip_norm"] = 10.0
 
 
 # Pre-processing parameters (The RGB image is pre-processed to fit computational requirements)
@@ -245,7 +245,7 @@ def actor_learner(thread_id, env, session, graph_ops, num_actions, summary_ops, 
                 R = np.max(target_Q)
 
             for i in range(t-t_start-1,-1,-1):
-                R += reward_mem[i] + flags["gamma"]*R
+                R = reward_mem[i] + flags["gamma"]*R
                 y_mem.append(R)
 
             y_mem.reverse()
