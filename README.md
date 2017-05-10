@@ -10,7 +10,7 @@ Disclaimer:This repo has no affiliation with Google Deepmind or the authors; it 
 * [Keras](https://keras.io/)
 * [OpenCV](http://opencv.org/)
 
-**Note**: I'm using opencv only to convert images from RGB to Grayscale and rescale their sizes. These could easily be done in other libraries like scikit-image, etc.  
+**Note**: I'm using opencv only to convert images from RGB to Grayscale and rescale their sizes. These could easily be done in other libraries like scikit-image, etc. 
 
 ## How to use the code?
 
@@ -37,22 +37,57 @@ The **build_model.py** is used to define the structure of the neural net we inte
 ### Asynchronous 1-step Q learner
 
 ```python
-python async_Q_1step.py
+python async_Q_1step.py --experiment "async_dqn_1_step_space_invader" --game "SpaceInvaders-v0" --num_actor_threads 16 
+```
+
+All arguments are optional. To look at the list of available parser arguments:
+
+```
+python async_Q_1step.py --help 
 ```
 
 ### Asynchronous n-step Q learner
 
 ```python
-python async_Q_nstep.py
+python async_Q_nstep.py --experiment "async_dqn_1_step_space_invader" --game "SpaceInvaders-v0" --num_actor_threads 16  
+```
+Few of the default parameter setting are listed below:
+
+```
+--num_steps_Q 5
+
+--learning_rate 0.0001
+--decay_rate_RMSProp 0.99
+
+--async_update_frequency 32
+--target_network_update_frequency 40000
+
+--gamma 0.99
+
 ```
 
-## General notes on both scripts 
-This script contains all the modules relevant to training and evaluating the network. It's a headache to use multiple graphs on tensorflow. Hence, I define all the necessary graph operations in the function **initialize_graph_ops(args)**. It's saves a lot of trouble if you can track the learning progress over time. Hence, all necessary ops for the tensorboard are initialized in **initalize_summary_ops(args)**. To launch the tensorboard:
+## Visualizing the results
+To launch the tensorboard:
 
 ```
 tensorboard --logdir /tmp/summaries/async_dqn_n_step_space_invader/
 ``` 
-where  __async_dqn_n_step_space_invader__ is the name of the experiment. The summary and checkpoint directories, hyper-parameters and meta-data(including name of the expt) are all defined in a dictionary called **flags**. Initially I planned to use "tf.app.flags" similar to [@coreylynch's](https://github.com/coreylynch/async-rl) implementation. But there is no good documentation for it. This [stackoverflow answer](http://stackoverflow.com/questions/33932901/whats-the-purpose-of-tf-app-flags-in-tensorflow) suggests using python-gflags or argsparse instead.
+where  __async_dqn_n_step_space_invader__ is the name of the experiment. The summary and checkpoint directories, hyper-parameters and meta-data(including name of the expt) are all defined in a dictionary called **flags**. 
+
+### Parser arguments
+I'm using "tf.app.flags" similar to [@coreylynch's](https://github.com/coreylynch/async-rl) implementation. But there is nearly zero documentation for it. For more information, you can look at what's going on in [tensorflow/python/platform/flags.py](https://github.com/tensorflow/tensorflow/blob/master/tensorflow/python/platform/flags.py). It's really just a thin wrapper around argparse.ArgumentParser(). In particular, all of the DEFINE_* end up adding arguments to a _global_parser, for example, through this helper function:
+
+```python
+def _define_helper(flag_name, default_value, docstring, flagtype):
+    """Registers 'flag_name' with 'default_value' and 'docstring'."""
+    _global_parser.add_argument("--" + flag_name,
+                                default=default_value,
+                                help=docstring,
+                                type=flagtype)
+``` 
+
+## General notes on both scripts 
+This script contains all the modules relevant to training and evaluating the network. It's a headache to use multiple graphs on tensorflow. Hence, I define all the necessary graph operations in the function **initialize_graph_ops(args)**. It's saves a lot of trouble if you can track the learning progress over time. Hence, all necessary ops for the tensorboard are initialized in **initalize_summary_ops(args)**. 
 
 The function **actor_learner(args)** is the code for each actor-learner thread as defined in the paper. The **train(args)** function initializes an atari environment for each thread and starts running the threads in parallel. I haven't implemented it with thread-locking or multi-processing yet. The current implementation is a bare bones version using the basic **threading** module in python. By default, flags to "render_environment" are set to False. 
 
