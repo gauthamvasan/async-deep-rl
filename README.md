@@ -5,8 +5,7 @@ Disclaimer:This repo has no affiliation with Google Deepmind or the authors; it 
 
 ## Requirements
 * [tensorflow](https://www.tensorflow.org/versions/r0.9/get_started/os_setup.html)
-* [OpenAI Gym](https://github.com/openai/gym#installation)
-* [OpenAI Gym's Atari Environment] (https://gym.openai.com/envs#atari)
+* [OpenAI Gym and it's Atari environments](https://github.com/openai/gym#installation)
 * [Keras](https://keras.io/)
 * [OpenCV](http://opencv.org/)
 
@@ -36,8 +35,8 @@ The **build_model.py** is used to define the structure of the neural net we inte
 
 ### Asynchronous 1-step Q learner
 
-```python
-python async_Q_1step.py --experiment "async_dqn_1_step_space_invader" --game "SpaceInvaders-v0" --num_actor_threads 16 
+```
+python async_Q_1step.py --experiment "1_step_space_invader" --game "SpaceInvaders-v0" --num_actor_threads 16 
 ```
 
 All arguments are optional. To look at the list of available parser arguments:
@@ -48,8 +47,8 @@ python async_Q_1step.py --help
 
 ### Asynchronous n-step Q learner
 
-```python
-python async_Q_nstep.py --experiment "async_dqn_1_step_space_invader" --game "SpaceInvaders-v0" --num_actor_threads 16  
+```
+python async_Q_nstep.py --experiment "n_step_space_invader" --game "SpaceInvaders-v0" --num_actor_threads 16  
 ```
 Few of the default parameter setting are listed below:
 
@@ -63,7 +62,6 @@ Few of the default parameter setting are listed below:
 --target_network_update_frequency 40000
 
 --gamma 0.99
-
 ```
 
 ## Visualizing the results
