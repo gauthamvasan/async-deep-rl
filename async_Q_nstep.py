@@ -23,11 +23,12 @@ flags['game'] = 'SpaceInvaders-v0'  # OpenAI Gym handle/name for the game
 # Algorithm specific flags and hyper-parameters
 flags['num_actor_threads'] = 8  # Number of concurrent actor-learner threads to use during training.
 flags['T_max'] = 80000000  # Number of training frames/steps
-flags['async_update_frequency'] = 5  # Frequency with which each actor learner thread does an async gradient update
+flags['async_update_frequency'] = 32  # Frequency with which each actor learner thread does an async gradient update
 flags['target_network_update_frequency'] = 40000  # Update and Reset the target network every n timesteps
 flags['learning_rate'] = 0.0001  # Initial learning rate
 flags['gamma'] = 0.99  # Discount rate for the reward
 flags['num_steps_Q'] = 5    # Denoted as t_max in the paper - Basically the value of 'n' in n-step return
+flags["clip_norm"] = 1.0
 
 # Pre-processing parameters (The RGB image is pre-processed to fit computational requirements)
 flags['scaled_width'] = 84  # Scale screen to this width.
@@ -40,12 +41,12 @@ flags["final_epsilon_choice_probabilities"] = [0.4, 0.3, 0.3]
 flags['anneal_epsilon_timesteps'] = 4000000  # 'Number of timesteps to anneal epsilon.
 
 # Summary writer
-flags['summary_dir'] = '~/Downloads/tmp/summaries'  # Directory for storing tensorboard summaries
-flags['checkpoint_dir'] = '~/Downloads/tmp/checkpoints' + "/" + flags[
+flags['summary_dir'] = '/tmp/summaries'  # Directory for storing tensorboard summaries
+flags['checkpoint_dir'] = '/tmp/checkpoints' + "/" + flags[
     "experiment"]  # Directory for storing model checkpoints
 flags['summary_interval'] = 5  # Save training summary to file every n seconds (rounded up to statistics interval)
 flags['checkpoint_interval'] = 600  # Save the parameters every n seconds
-flags['eval_dir'] = '~/Downloads/tmp/'  # Directory to store gym evaluation
+flags['eval_dir'] = '/tmp/'  # Directory to store gym evaluation
 flags['checkpoint_file'] = "/filename.ckpt"  # Choose which weights to load
 
 # Testing & Rendering
@@ -88,19 +89,30 @@ def initialize_graph_ops(num_actions):
     copy_network_to_thread = []
     thread_action_values = []
     thread_costs = []
-    thread_gradient_updates = []
+    thread_compute_gradients = []
+    async_update_shared_network = []
+
     for i in range(flags["num_actor_threads"]):
         thread_networks.append(sequential_network(num_actions, flags['agent_history_length'], flags['scaled_width'], flags['scaled_height']) )
         thread_network_params.append(thread_networks[i].trainable_weights)
         thread_q_values.append(thread_networks[i](state))
-        copy_network_to_thread.append([thread_networks[i][j].assign(network_params[j]) for j in range(len(thread_networks[i]))])
-        thread_action_values.append(tf.gather_nd(thread_q_values[i],actions_list))
-        thread_costs.append(tf.reduce_mean(tf.square(y - action_values)))
-        thread_gradient_updates.append(optimizer.minimize(thread_costs[i],var_list=thread_network_params[i]))
+
+        copy_network_to_thread.append([thread_network_params[i][j].assign(network_params[j]) for j in range(len(thread_network_params[i]))])
+
+        thread_action_values.append(tf.gather_nd(thread_q_values[i], actions_list))
+        thread_costs.append(tf.reduce_mean(tf.square(y - thread_action_values[i])))
+        thread_compute_gradients.append(tf.gradients(thread_costs[i],thread_network_params[i]))
+
+        grad_and_vars = zip(thread_compute_gradients[i], network_params)
+        gradients, variables = zip(*grad_and_vars)
+        gradients, _ = tf.clip_by_global_norm(gradients, flags["clip_norm"])
+        grad_and_vars = zip(gradients, variables)
+        async_update_shared_network.append(optimizer.apply_gradients(grad_and_vars))
 
 
 
     graph_ops = {"q_values": q_values,
+                 "network_params": network_params,
                  "state": state,
                  "target_state": target_state,
                  "target_q_values": target_q_values,
@@ -111,10 +123,13 @@ def initialize_graph_ops(num_actions):
                  "cost": cost,
                  "optimizer": optimizer,
                  "gradient_update": gradient_update,
+
                  "thread_networks": thread_networks,
                  "thread_network_params": thread_network_params,
                  "thread_q_values": thread_q_values,
                  "copy_network_to_thread": copy_network_to_thread,
+                 "async_update_shared_network": async_update_shared_network,
+
                  }
 
 
@@ -159,29 +174,9 @@ def actor_learner(thread_id, env, session, graph_ops, num_actions, summary_ops, 
     action_set = np.arange(num_actions)
 
     # For n-step Q learning, there is an additional set of network weights maintained for the thread
-    thread_network = sequential_network(num_actions, flags['agent_history_length'], flags['scaled_width'], flags['scaled_height'])
-    thread_network_params = thread_network.trainable_weights
-    sync_thread_network = [thread_network_params[i].assign(graph_ops["global_param_theta"][i]) for i in
-                               range(len(thread_network_params))]
-    thread_q_values = thread_network(graph_ops["state"])
-
-    # Cost and gradient update ops
-    y = tf.placeholder("float", [None])  # Target
-    actions_list = tf.placeholder(tf.int32, [None,
-                                             None])  # 2D list consisting of sample number (in th batch) and the action chosen
-    action_values = tf.gather_nd(thread_q_values, actions_list)  # Gather the Q values
-
-    cost = tf.reduce_mean(tf.square(y - action_values))
-    optimizer = tf.train.RMSPropOptimizer(flags["learning_rate"])
-    gradient_updates = optimizer.minimize(cost, var_list=thread_network_params)
-
-    async_update_shared_network = [graph_ops["global_param_theta"][i].assign(thread_network_params[i]) for i in
-                               range(len(thread_network_params))]
-
-
-
-    session.run(tf.variables_initializer([y, actions_list]))
-
+    thread_q_values = graph_ops["thread_q_values"][thread_id]
+    copy_network_to_thread = graph_ops["copy_network_to_thread"][thread_id]
+    async_update_shared_network = graph_ops["async_update_shared_network"][thread_id]
 
     while T < flags["T_max"]:
         current_state = env.reset()
@@ -199,7 +194,7 @@ def actor_learner(thread_id, env, session, graph_ops, num_actions, summary_ops, 
             reward_mem = []
 
             # Initialize thread specific parameters
-            session.run(sync_thread_network)
+            session.run(copy_network_to_thread)
             t_start = t
 
             while t - t_start < flags["num_steps_Q"] or not done:
@@ -226,6 +221,10 @@ def actor_learner(thread_id, env, session, graph_ops, num_actions, summary_ops, 
                 # Update the state
                 current_state = next_state
 
+                # Anneal epsilon
+                if epsilon > final_epsilon:
+                    epsilon -= epsilon_anneal_factor
+
             if done:
                 R = 0
 
@@ -243,20 +242,17 @@ def actor_learner(thread_id, env, session, graph_ops, num_actions, summary_ops, 
                                                                    feed_dict={graph_ops["target_state"]: [current_state]})
                 R = np.max(target_Q)
 
-            for i in range(flags["num_steps_Q"]-1,-1,-1):
+            for i in range(t-t_start-1,-1,-1):
                 R += reward_mem[i] + flags["gamma"]*R
                 y_mem.append(R)
 
-            y_mem = y_mem.reverse()
+            y_mem.reverse()
 
-            session.run(gradient_updates, feed_dict={y: y_mem,
-                                                     graph_ops["state"]: state_mem,
-                                                     actions_list: action_mem})
-            session.run(async_update_shared_network)
+            session.run(async_update_shared_network, feed_dict={graph_ops["y"]: y_mem,
+                                                                graph_ops["state"]: state_mem,
+                                                                graph_ops["action_list"]: action_mem})
 
-            # Anneal epsilon
-            if epsilon > final_epsilon:
-                epsilon -= epsilon_anneal_factor
+
 
             # Updates of target network
             if T % flags["target_network_update_frequency"] == 0:
