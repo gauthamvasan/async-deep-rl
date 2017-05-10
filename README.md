@@ -25,7 +25,7 @@ The **atari_wrapper.py** file is used to pre-process the screen image obtained f
 * We convert the RGB frame to Grayscale and rescale it to (84,84) in order to make it computationally less expensive. 
 * We stack the **m** most recent frames and stack them to produce the input to the Q-function, in which m = 4. (According to the paper, you can try different values of **m**)
 * The atari_wrapper was designed as a wrapper over the gym environment object. Hence, you can use sill use method calls like render(), step(action) and reset().
-* The methods step(action) and reset() provides a processed state information matrix of size (84, 84, **m**)
+* The methods step(action) and reset() provides a processed state information matrix of size (**m**, 84, 84)
 * In addition, step(action) also provides reward, terminal and meta-info.
 
 The **build_model.py** is used to define the structure of the neural net we intend to use in this repo. I've 2 functions within which practically perform the same operation. One shows how to define a neural net explicitly in Keras. The other defines tensorflow-type layers integrated with Keras. Regardless of the function you choose to use, this is the network architecture:
