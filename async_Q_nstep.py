@@ -29,7 +29,7 @@ flags['learning_rate'] = 1*math.pow(10,-4)  # Initial learning rate
 flags['decay_rate_RMSProp'] = 0.99
 flags['gamma'] = 0.99  # Discount rate for the reward
 flags['num_steps_Q'] = 5    # Denoted as t_max in the paper - Basically the value of 'n' in n-step return
-flags["clip_norm"] = 10.0
+flags["clip_norm"] = 2.0
 
 
 # Pre-processing parameters (The RGB image is pre-processed to fit computational requirements)
