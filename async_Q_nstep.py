@@ -22,9 +22,9 @@ parsers.DEFINE_string('game', 'SpaceInvaders-v0', 'Name of the atari environment
 
 # Algorithm specific flags and hyper-parameters
 parsers.DEFINE_integer('num_actor_threads', 8, "Number of concurrent actor-learner threads to use during training.")
-parsers.DEFINE_integer('T_max', 20000000,'Number of training frames/steps')
+parsers.DEFINE_integer('T_max', 50000000,'Number of training frames/steps')
 parsers.DEFINE_integer('async_update_frequency', 32, 'Frequency of async gradient update of global shared network by the actor learner thread')
-parsers.DEFINE_integer('target_network_update_frequency', 40000, 'Update and Reset the target network every n timesteps')
+parsers.DEFINE_integer('target_network_update_frequency', 10000, 'Update and Reset the target network every n timesteps')
 parsers.DEFINE_float('learning_rate',1*math.pow(10,-4), 'Initial learning rate')
 parsers.DEFINE_float('decay_rate_RMSProp', 0.99, 'Decay rate for RMSProp')
 parsers.DEFINE_float('gamma', 0.99 , 'Discount rate for the reward')
@@ -43,7 +43,7 @@ parsers.DEFINE_integer('anneal_epsilon_timesteps', 4000000, 'Number of timesteps
 
 # Summary writer
 parsers.DEFINE_string('summary_dir', '/tmp/summaries', 'Directory for storing tensorboard summaries')
-parsers.DEFINE_string('checkpoint_dir', '/tmp/checkpoints' + "/" , 'Directory for storing model checkpoints')
+parsers.DEFINE_string('checkpoint_dir', '/tmp/checkpoints' , 'Directory for storing model checkpoints')
 parsers.DEFINE_integer('summary_interval', 5, 'Save training summary to file every n seconds')
 parsers.DEFINE_integer('checkpoint_interval', 600, 'Save the parameters every n seconds')
 parsers.DEFINE_string('eval_dir', '/tmp/', 'Directory to store gym evaluation')
@@ -55,7 +55,6 @@ parsers.DEFINE_boolean('testing', False , 'If True, run evaulate the stored mode
 parsers.DEFINE_integer('num_eval_episodes', 100, 'Number of episodes to evaluate the stored model')
 
 flags = parsers.FLAGS
-flags.anneal_epsilon_timesteps //= flags.num_actor_threads
 flags.checkpoint_dir += flags.experiment
 
 def initialize_graph_ops(num_actions):
@@ -107,9 +106,9 @@ def initialize_graph_ops(num_actions):
         thread_compute_gradients.append(tf.gradients(thread_costs[i],thread_network_params[i]))
 
         grad_and_vars = zip(thread_compute_gradients[i], network_params)
-        gradients, variables = zip(*grad_and_vars)
-        gradients, _ = tf.clip_by_global_norm(gradients, flags.clip_norm)
-        grad_and_vars = zip(gradients, variables)
+        # gradients, variables = zip(*grad_and_vars)
+        # gradients, _ = tf.clip_by_global_norm(gradients, flags.clip_norm)
+        # grad_and_vars = zip(gradients, variables)
         async_update_shared_network.append(optimizer.apply_gradients(grad_and_vars))
 
 
@@ -165,14 +164,15 @@ def sample_action_epsilon_greedy(q_values, action_set, epsilon=0.1):
 
 
 def actor_learner(thread_id, env, session, graph_ops, num_actions, summary_ops, saver):
-    global T
+    global T, flags
     t = 0  # Thread step counter
     summary_placeholders, update_ops, summary_op = summary_ops
 
     # Selecting epsilon as described in the paper
     epsilon = 1.0
     final_epsilon = np.random.choice(flags.final_epsilon_choices, p=flags.final_epsilon_choice_probabilities)
-    epsilon_anneal_factor = (epsilon - final_epsilon) / flags.anneal_epsilon_timesteps
+    epsilon_anneal_timesteps = flags.anneal_epsilon_timesteps//flags.num_actor_threads
+    epsilon_anneal_factor = (epsilon - final_epsilon) / (epsilon_anneal_timesteps)
 
     action_set = np.arange(num_actions)
 
@@ -180,6 +180,7 @@ def actor_learner(thread_id, env, session, graph_ops, num_actions, summary_ops, 
     thread_q_values = graph_ops["thread_q_values"][thread_id]
     copy_network_to_thread = graph_ops["copy_network_to_thread"][thread_id]
     async_update_shared_network = graph_ops["async_update_shared_network"][thread_id]
+
 
     while T < flags.T_max:
         current_state = env.reset()
@@ -239,7 +240,7 @@ def actor_learner(thread_id, env, session, graph_ops, num_actions, summary_ops, 
 
                 print "THREAD:", thread_id, "/ TIME", T, "/ TIMESTEP", t, "/ EPSILON", epsilon, "/ REWARD", episode_return, "/ Q_MAX %.4f" % (
                     avg_episode_max_q / float(episode_timesteps)), "/ EPSILON PROGRESS", t / float(
-                    flags.anneal_epsilon_timesteps)
+                    epsilon_anneal_timesteps)
             else:
                 target_Q = graph_ops["target_q_values"].eval(session=session,
                                                                    feed_dict={graph_ops["target_state"]: [current_state]})
@@ -264,7 +265,7 @@ def actor_learner(thread_id, env, session, graph_ops, num_actions, summary_ops, 
 
             # Save the model every 'n' seconds
             if t % flags.checkpoint_interval == 0:
-                saver.save(session, flags.checkpoint_dir)
+                saver.save(session, flags.checkpoint_dir+ "/" + flags.experiment, global_step=t)
 
 
 def train(session, num_actions, graph_ops, saver):
@@ -280,7 +281,7 @@ def train(session, num_actions, graph_ops, saver):
 
     summary_save_path = flags.summary_dir + "/" + flags.experiment
     writer = tf.summary.FileWriter(summary_save_path, session.graph)
-    if not os.path.exists(flags.checkpoint_dir):
+    if not os.path.exists(flags.checkpoint_dir+ "/" + flags.experiment):
         os.makedirs(flags.checkpoint_dir)
 
     # Start num_concurrent actor-learner training threads
