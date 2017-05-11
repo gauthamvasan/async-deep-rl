@@ -23,7 +23,6 @@ parsers.DEFINE_string('game', 'SpaceInvaders-v0', 'Name of the atari environment
 # Algorithm specific flags and hyper-parameters
 parsers.DEFINE_integer('num_actor_threads', 8, "Number of concurrent actor-learner threads to use during training.")
 parsers.DEFINE_integer('T_max', 50000000,'Number of training frames/steps')
-parsers.DEFINE_integer('async_update_frequency', 32, 'Frequency of async gradient update of global shared network by the actor learner thread')
 parsers.DEFINE_integer('target_network_update_frequency', 10000, 'Update and Reset the target network every n timesteps')
 parsers.DEFINE_float('learning_rate',1*math.pow(10,-4), 'Initial learning rate')
 parsers.DEFINE_float('decay_rate_RMSProp', 0.99, 'Decay rate for RMSProp')
@@ -80,7 +79,8 @@ def initialize_graph_ops(num_actions):
     actions_list = tf.placeholder(tf.int32, [None, None])     # 2D list consisting of sample number (in th batch) and the action chosen
     action_values = tf.gather_nd(q_values,actions_list)       # Gather the Q values
 
-    cost = tf.reduce_mean(tf.square(y - action_values))
+    #cost = tf.reduce_mean(tf.square(y - action_values))
+    cost = tf.losses.mean_pairwise_squared_error(y, action_values)
     optimizer = tf.train.RMSPropOptimizer(flags.learning_rate, decay=flags.decay_rate_RMSProp)
     gradient_update = optimizer.minimize(cost,var_list=network_params)
 
@@ -102,7 +102,8 @@ def initialize_graph_ops(num_actions):
         copy_network_to_thread.append([thread_network_params[i][j].assign(network_params[j]) for j in range(len(thread_network_params[i]))])
 
         thread_action_values.append(tf.gather_nd(thread_q_values[i], actions_list))
-        thread_costs.append(tf.reduce_mean(tf.square(y - thread_action_values[i])))
+        #thread_costs.append(tf.reduce_mean(tf.square(y - thread_action_values[i])))
+        thread_costs.append(tf.losses.mean_pairwise_squared_error(y, thread_action_values[i]))
         thread_compute_gradients.append(tf.gradients(thread_costs[i],thread_network_params[i]))
 
         grad_and_vars = zip(thread_compute_gradients[i], network_params)
@@ -127,6 +128,7 @@ def initialize_graph_ops(num_actions):
                  "gradient_update": gradient_update,
 
                  "thread_networks": thread_networks,
+                 "thread_action_values": thread_action_values,
                  "thread_network_params": thread_network_params,
                  "thread_q_values": thread_q_values,
                  "copy_network_to_thread": copy_network_to_thread,
@@ -180,6 +182,7 @@ def actor_learner(thread_id, env, session, graph_ops, num_actions, summary_ops, 
     thread_q_values = graph_ops["thread_q_values"][thread_id]
     copy_network_to_thread = graph_ops["copy_network_to_thread"][thread_id]
     async_update_shared_network = graph_ops["async_update_shared_network"][thread_id]
+    thread_action_values = graph_ops["thread_action_values"][thread_id]
 
 
     while T < flags.T_max:
@@ -273,7 +276,7 @@ def train(session, num_actions, graph_ops, saver):
     summary_placeholders, update_ops, summary_op = initialize_summary_ops()
 
     # Initialize tensorflow variables
-    session.run(tf.initialize_all_variables())
+    session.run(tf.global_variables_initializer())
 
     session.run(graph_ops["async_update_target_network"])
     envs = [Atari_Environment(gym.make('SpaceInvaders-v0'), flags.scaled_width, flags.scaled_height,

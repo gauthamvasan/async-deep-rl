@@ -61,9 +61,7 @@ Few of the default parameter setting are listed below:
 --learning_rate 0.0001
 --decay_rate_RMSProp 0.99
 
---async_update_frequency 32
 --target_network_update_frequency 40000
-
 --gamma 0.99
 ```
 
