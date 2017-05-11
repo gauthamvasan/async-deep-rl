@@ -25,6 +25,8 @@ parsers.DEFINE_integer('num_actor_threads', 8, "Number of concurrent actor-learn
 parsers.DEFINE_integer('T_max', 50000000,'Number of training frames/steps')
 parsers.DEFINE_integer('target_network_update_frequency', 10000, 'Update and Reset the target network every n timesteps')
 parsers.DEFINE_float('learning_rate',1*math.pow(10,-4), 'Initial learning rate')
+parsers.DEFINE_float('decay_learning_rate',0.99, 'Initial learning rate')
+
 parsers.DEFINE_float('decay_rate_RMSProp', 0.99, 'Decay rate for RMSProp')
 parsers.DEFINE_float('gamma', 0.99 , 'Discount rate for the reward')
 parsers.DEFINE_integer('num_steps_Q', 5, 'Denoted as t_max in the paper - Basically the value of \'n\' in n-step return')
@@ -81,7 +83,14 @@ def initialize_graph_ops(num_actions):
 
     #cost = tf.reduce_mean(tf.square(y - action_values))
     cost = tf.losses.mean_squared_error(y, action_values)
-    optimizer = tf.train.RMSPropOptimizer(flags.learning_rate, decay=flags.decay_rate_RMSProp)
+
+    # Anneal learning rate to 0
+    global_step = tf.Variable(0, dtype=tf.int32, trainable=False)
+    decay_rate = flags.decay_learning_rate
+    decay_steps = int(1/(1-decay_rate))
+    learning_rate = tf.train.exponential_decay(flags.learning_rate, global_step, flags.T_max//decay_steps, decay_rate)
+
+    optimizer = tf.train.RMSPropOptimizer(learning_rate, decay=flags.decay_rate_RMSProp)
     gradient_update = optimizer.minimize(cost,var_list=network_params)
 
     # Thread networks
@@ -126,6 +135,7 @@ def initialize_graph_ops(num_actions):
                  "cost": cost,
                  "optimizer": optimizer,
                  "gradient_update": gradient_update,
+                 'global_step': global_step,
 
                  "thread_networks": thread_networks,
                  "thread_action_values": thread_action_values,
@@ -258,7 +268,8 @@ def actor_learner(thread_id, env, session, graph_ops, num_actions, summary_ops, 
             # Async update of global network
             session.run(async_update_shared_network, feed_dict={graph_ops["y"]: y_mem,
                                                                 graph_ops["state"]: state_mem,
-                                                                graph_ops["action_list"]: action_mem})
+                                                                graph_ops["action_list"]: action_mem,
+                                                                graph_ops["global_step"]: T, })
 
 
 
