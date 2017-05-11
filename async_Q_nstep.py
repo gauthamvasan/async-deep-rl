@@ -28,7 +28,7 @@ parsers.DEFINE_float('learning_rate',1*math.pow(10,-4), 'Initial learning rate')
 parsers.DEFINE_float('decay_rate_RMSProp', 0.99, 'Decay rate for RMSProp')
 parsers.DEFINE_float('gamma', 0.99 , 'Discount rate for the reward')
 parsers.DEFINE_integer('num_steps_Q', 5, 'Denoted as t_max in the paper - Basically the value of \'n\' in n-step return')
-parsers.DEFINE_float("clip_norm", 10.0, 'Gradient clipping L2 norm threshold')
+parsers.DEFINE_float("clip_norm", 1.0, 'Gradient clipping L2 norm threshold')
 
 # Pre-processing parameters (The RGB image is pre-processed to fit computational requirements)
 parsers.DEFINE_integer('scaled_width', 84, 'Scale screen to this width')
@@ -80,7 +80,7 @@ def initialize_graph_ops(num_actions):
     action_values = tf.gather_nd(q_values,actions_list)       # Gather the Q values
 
     #cost = tf.reduce_mean(tf.square(y - action_values))
-    cost = tf.losses.mean_pairwise_squared_error(y, action_values)
+    cost = tf.losses.mean_squared_error(y, action_values)
     optimizer = tf.train.RMSPropOptimizer(flags.learning_rate, decay=flags.decay_rate_RMSProp)
     gradient_update = optimizer.minimize(cost,var_list=network_params)
 
@@ -103,13 +103,13 @@ def initialize_graph_ops(num_actions):
 
         thread_action_values.append(tf.gather_nd(thread_q_values[i], actions_list))
         #thread_costs.append(tf.reduce_mean(tf.square(y - thread_action_values[i])))
-        thread_costs.append(tf.losses.mean_pairwise_squared_error(y, thread_action_values[i]))
+        thread_costs.append(tf.losses.mean_squared_error(y, thread_action_values[i]))
         thread_compute_gradients.append(tf.gradients(thread_costs[i],thread_network_params[i]))
 
         grad_and_vars = zip(thread_compute_gradients[i], network_params)
-        # gradients, variables = zip(*grad_and_vars)
-        # gradients, _ = tf.clip_by_global_norm(gradients, flags.clip_norm)
-        # grad_and_vars = zip(gradients, variables)
+        gradients, variables = zip(*grad_and_vars)
+        gradients, _ = tf.clip_by_global_norm(gradients, flags.clip_norm)
+        grad_and_vars = zip(gradients, variables)
         async_update_shared_network.append(optimizer.apply_gradients(grad_and_vars))
 
 
