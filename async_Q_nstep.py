@@ -192,8 +192,6 @@ def actor_learner(thread_id, env, session, graph_ops, num_actions, summary_ops, 
     thread_q_values = graph_ops["thread_q_values"][thread_id]
     copy_network_to_thread = graph_ops["copy_network_to_thread"][thread_id]
     async_update_shared_network = graph_ops["async_update_shared_network"][thread_id]
-    thread_action_values = graph_ops["thread_action_values"][thread_id]
-
 
     while T < flags.T_max:
         current_state = env.reset()
@@ -259,8 +257,8 @@ def actor_learner(thread_id, env, session, graph_ops, num_actions, summary_ops, 
                                                                    feed_dict={graph_ops["target_state"]: [current_state]})
                 R = np.max(target_Q)
 
-            for i in range(t-t_start-1,-1,-1):
-                R = reward_mem[i] + flags.gamma*R
+            for r in reversed(reward_mem):
+                R = r + flags.gamma*R
                 y_mem.append(R)
 
             y_mem.reverse()
