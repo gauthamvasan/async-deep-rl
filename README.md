@@ -124,6 +124,7 @@ async_update_shared_network = optimizer.apply_gradients(grads_and_vars)
 * All rewards are clipped between (-1,1). As much as I hate losing information about the difference in magnitude of rewards, this has worked pretty well in Atari learners. 
 * The values of &epsilon; were annealed from 1 to 0.1/0.01/0.5 over 4 million frames. The final &epsilon; rate was sampled from a probability distribution p = [0.4, 0.3, 0.3]
 respectively over the first four million frames. 
+* The learning rate is &alpha; annealed to zero over the course of training time. 
 
 ## Resources
 I highly recommend going through atleast a few of these links. They're highly useful and serve as general background material for Deep Reinforcement Learning.
