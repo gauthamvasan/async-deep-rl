@@ -17,14 +17,14 @@ T = 0  # Global counter
 parsers = tf.app.flags
 
 # Choose the Gym environment you intend to run
-parsers.DEFINE_string('experiment', 'async_dqn_n_step_space_invader', 'Name of the experiment')
+parsers.DEFINE_string('experiment', 'async_dqn_n_step_space_invader_run2', 'Name of the experiment')
 parsers.DEFINE_string('game', 'SpaceInvaders-v0', 'Name of the atari environment in OpenAI Gym ' )
 
 # Algorithm specific flags and hyper-parameters
 parsers.DEFINE_integer('num_actor_threads', 8, "Number of concurrent actor-learner threads to use during training.")
 parsers.DEFINE_integer('T_max', 50000000,'Number of training frames/steps')
 parsers.DEFINE_integer('target_network_update_frequency', 10000, 'Update and Reset the target network every n timesteps')
-parsers.DEFINE_float('learning_rate',1*math.pow(10,-4), 'Initial learning rate')
+parsers.DEFINE_float('learning_rate',5*math.pow(10,-3), 'Initial learning rate')
 parsers.DEFINE_float('decay_learning_rate',0.99, 'Initial learning rate')
 
 parsers.DEFINE_float('decay_rate_RMSProp', 0.99, 'Decay rate for RMSProp')
@@ -81,8 +81,8 @@ def initialize_graph_ops(num_actions):
     actions_list = tf.placeholder(tf.int32, [None, None])     # 2D list consisting of sample number (in th batch) and the action chosen
     action_values = tf.gather_nd(q_values,actions_list)       # Gather the Q values
 
-    #cost = tf.reduce_mean(tf.square(y - action_values))
-    cost = tf.losses.mean_squared_error(y, action_values)
+    cost = tf.square(y - action_values)
+    #cost = tf.losses.mean_squared_error(y, action_values)
 
     # Anneal learning rate to 0
     global_step = tf.Variable(0, dtype=tf.int32, trainable=False)
@@ -111,8 +111,8 @@ def initialize_graph_ops(num_actions):
         copy_network_to_thread.append([thread_network_params[i][j].assign(network_params[j]) for j in range(len(thread_network_params[i]))])
 
         thread_action_values.append(tf.gather_nd(thread_q_values[i], actions_list))
-        #thread_costs.append(tf.reduce_mean(tf.square(y - thread_action_values[i])))
-        thread_costs.append(tf.losses.mean_squared_error(y, thread_action_values[i]))
+        thread_costs.append(tf.square(y - thread_action_values[i]))
+        #thread_costs.append(tf.losses.mean_squared_error(y, thread_action_values[i]))
         thread_compute_gradients.append(tf.gradients(thread_costs[i],thread_network_params[i]))
 
         grad_and_vars = zip(thread_compute_gradients[i], network_params)
@@ -294,7 +294,7 @@ def train(session, num_actions, graph_ops, saver):
     summary_save_path = flags.summary_dir + "/" + flags.experiment
     writer = tf.summary.FileWriter(summary_save_path, session.graph)
     if not os.path.exists(flags.checkpoint_dir+ "/" + flags.experiment):
-        os.makedirs(flags.checkpoint_dir)
+        os.makedirs(flags.checkpoint_dir+ "/" + flags.experiment)
 
     # Start num_concurrent actor-learner training threads
     actor_learner_threads = [threading.Thread(target=actor_learner, args=(
