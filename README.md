@@ -117,6 +117,7 @@ grads_and_vars = zip(clipped_grads, vars)
 async_update_shared_network = optimizer.apply_gradients(grads_and_vars)
 ``` 
 
+* In the case of n-step Q learner, we want to accumulate the gradients for each squared error loss rather than calculate the gradient based on the mean squared error loss. In tensorflow, just feeding a tensor with all the losses results in calculating the aggregate/sum of gradients. Hence, I directly feed this aggregated gradient to the apply_gradients(args) method.
 * The target for the network output is a part of the TD Error/Bellman Error = reward + maxQ. This maxQ is calculated using the global shared target parameter vector &theta;-
 * This global shared target parameter vector &theta;- is updates every 40,000 frames. 
 * [Note] The authors of the paper mention that they clip the gradients. But they haven't mentioned their clipping threshold. I have just used a random value (+10) here. Only a complete parameter sweep would elaborate its effect. 
