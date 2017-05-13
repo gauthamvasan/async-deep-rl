@@ -73,6 +73,8 @@ tensorboard --logdir /tmp/summaries/async_dqn_n_step_space_invader/
 ``` 
 where  __async_dqn_n_step_space_invader__ is the name of the experiment. The summary and checkpoint directories, hyper-parameters and meta-data(including name of the expt) are all defined as parser-arguments/flags.
 
+![alt text](/tensorboard.png)
+
 ### Parser arguments
 I'm using "tf.app.flags" similar to [@coreylynch's](https://github.com/coreylynch/async-rl) implementation. But there is nearly zero documentation for it. For more information, you can look at what's going on in [tensorflow/python/platform/flags.py](https://github.com/tensorflow/tensorflow/blob/master/tensorflow/python/platform/flags.py). It's really just a thin wrapper around argparse.ArgumentParser(). In particular, all of the DEFINE_* end up adding arguments to a _global_parser, for example, through this helper function:
 
