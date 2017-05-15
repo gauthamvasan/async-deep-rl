@@ -75,6 +75,10 @@ where  __async_dqn_n_step_space_invader__ is the name of the experiment. The sum
 
 ![alt text](/tensorboard.png)
 
+![alt text](/avg_maxq.png)
+
+The results above show learning progress for ~23 million frames. Though there's a lot of variance in performance, there is a slow, but steady increase in the average episodic reward obtained by the agent. The &epsilon; is annealed till 4 million frames. In the paper, the authors mention that they average the model across 5 independent runs. The results I show are just based on 1 run with 8 concurrent actor-learner threads. 
+
 ### Parser arguments
 I'm using "tf.app.flags" similar to [@coreylynch's](https://github.com/coreylynch/async-rl) implementation. But there is nearly zero documentation for it. For more information, you can look at what's going on in [tensorflow/python/platform/flags.py](https://github.com/tensorflow/tensorflow/blob/master/tensorflow/python/platform/flags.py). It's really just a thin wrapper around argparse.ArgumentParser(). In particular, all of the DEFINE_* end up adding arguments to a _global_parser, for example, through this helper function:
 
