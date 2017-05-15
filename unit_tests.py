@@ -33,8 +33,8 @@ class Model_Tests(unittest.TestCase):
         network_params = q_network.trainable_weights
         q_values = q_network(state)
 
-        st = np.zeros((4,84,84))
+        st = [np.zeros((4,84,84)), np.zeros((4,84,84))]
         session.run(tf.global_variables_initializer())
 
-        q_vals = q_values.eval(session=session, feed_dict={state: [st]})
-        self.assertEqual(q_vals.shape,(1,6))
+        q_vals = q_values.eval(session=session, feed_dict={state: st})
+        self.assertEqual(q_vals.shape,(2,6))
