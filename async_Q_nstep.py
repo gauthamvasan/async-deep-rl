@@ -324,7 +324,7 @@ def train(session, num_actions, graph_ops, saver):
 def evaluation(session, graph, num_actions):
     saver = tf.train.import_meta_graph(flags.checkpoint_dir + flags.checkpoint_file)
     saver.restore(session, tf.train.latest_checkpoint(flags.checkpoint_dir + '/' + './'))
-    all_vars = tf.get_collection(tf.GraphKeys.VARIABLES)
+    all_vars = tf.get_collection(tf.GraphKeys.VARIABLES)  # Print each var in all_vars if you want to find the names
 
     state = tf.placeholder("float",
                            [None, flags.agent_history_length, flags.scaled_width, flags.scaled_height])
@@ -332,19 +332,6 @@ def evaluation(session, graph, num_actions):
     network_params = shared_q_network.trainable_weights
     q_values = shared_q_network(state)
 
-    # Prints all the saved variables
-    #
-    # for v in all_vars:
-    #     print v
-    # weights = [graph.get_tensor_by_name("convolution2d_1_W/read:0"),
-    #            graph.get_tensor_by_name("convolution2d_1_b/read:0"),
-    #            graph.get_tensor_by_name("convolution2d_2_W/read:0"),
-    #            graph.get_tensor_by_name("convolution2d_2_b/read:0"),
-    #            graph.get_tensor_by_name("dense_1_W/read:0"),
-    #            graph.get_tensor_by_name("dense_1_b/read:0"),
-    #            graph.get_tensor_by_name("dense_2_W/read:0"),
-    #            graph.get_tensor_by_name("dense_2_b/read:0"),
-    #            ]
     weights = all_vars[0:8]
     weights_init = [network_params[i].assign(weights[i]) for i in range(len(weights))]
 
