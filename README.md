@@ -73,9 +73,9 @@ tensorboard --logdir /tmp/summaries/async_dqn_n_step_space_invader/
 ``` 
 where  __async_dqn_n_step_space_invader__ is the name of the experiment. The summary and checkpoint directories, hyper-parameters and meta-data(including name of the expt) are all defined as parser-arguments/flags.
 
-![alt text](/tensorboard.png)
+![alt text](/images/tensorboard.png)
 
-![alt text](/avg_maxq.png)
+![alt text](/images/avg_maxq.png)
 
 The results above show learning progress for ~23 million frames. Though there's a lot of variance in performance, there is a slow, but steady increase in the average episodic reward obtained by the agent. The &epsilon; is annealed till 4 million frames. In the paper, the authors mention that they average the model across 5 independent runs. The results I show are just based on 1 run with 8 concurrent actor-learner threads. 
 

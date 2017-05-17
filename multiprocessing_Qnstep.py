@@ -263,13 +263,15 @@ def actor_learner(thread_id, env, session, graph_ops, num_actions, summary_ops, 
 
             y_mem.reverse()
 
+            print "Before update in Thread: ", thread_id
+
             # Async update of global network
             session.run(async_update_shared_network, feed_dict={graph_ops["y"]: y_mem,
                                                                 graph_ops["state"]: state_mem,
                                                                 graph_ops["action_list"]: action_mem,
                                                                 graph_ops["global_step"]: T, })
 
-
+            print "After update in Thread: ", thread_id
 
             # Updates of target network
             if T % flags.target_network_update_frequency == 0:
@@ -278,6 +280,8 @@ def actor_learner(thread_id, env, session, graph_ops, num_actions, summary_ops, 
             # Save the model every 'n' seconds
             if t % flags.checkpoint_interval == 0:
                 saver.save(session, flags.checkpoint_dir+ "/" + flags.experiment, global_step=t)
+
+
 
 
 def train(session, num_actions, graph_ops, saver):
