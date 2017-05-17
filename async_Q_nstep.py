@@ -48,11 +48,11 @@ parsers.DEFINE_string('checkpoint_dir', '/tmp/checkpoints' , 'Directory for stor
 parsers.DEFINE_integer('summary_interval', 5, 'Save training summary to file every n seconds')
 parsers.DEFINE_integer('checkpoint_interval', 600, 'Save the parameters every n seconds')
 parsers.DEFINE_string('eval_dir', '/tmp/', 'Directory to store gym evaluation')
-parsers.DEFINE_string('checkpoint_file', "/filename.ckpt", 'Choose which weights to load')
+parsers.DEFINE_string('checkpoint_file', "/async_dqn_n_step_space_invader_run2-3564000.meta", 'Choose which weights to load')
 
 # Testing & Rendering
 parsers.DEFINE_boolean('render_training', False, 'If True, have gym render environments during training')
-parsers.DEFINE_boolean('testing', False , 'If True, run evaulate the stored model')
+parsers.DEFINE_boolean('testing', True, 'If True, run evaulate the stored model')
 parsers.DEFINE_integer('num_eval_episodes', 100, 'Number of episodes to evaluate the stored model')
 
 flags = parsers.FLAGS
@@ -321,14 +321,43 @@ def train(session, num_actions, graph_ops, saver):
         t.join()
 
 
-def evaluation(session, num_actions, graph_ops, saver):
-    saver.restore(session, flags.checkpoint_dir + flags.checkpoint_file)
+def evaluation(session, graph, num_actions):
+    saver = tf.train.import_meta_graph(flags.checkpoint_dir + flags.checkpoint_file)
+    saver.restore(session, tf.train.latest_checkpoint(flags.checkpoint_dir + '/' + './'))
+    all_vars = tf.get_collection(tf.GraphKeys.VARIABLES)
+
+    state = tf.placeholder("float",
+                           [None, flags.agent_history_length, flags.scaled_width, flags.scaled_height])
+    shared_q_network = sequential_network(num_actions, flags.agent_history_length, flags.scaled_width, flags.scaled_height)
+    network_params = shared_q_network.trainable_weights
+    q_values = shared_q_network(state)
+
+    # Prints all the saved variables
+    #
+    # for v in all_vars:
+    #     print v
+    # weights = [graph.get_tensor_by_name("convolution2d_1_W/read:0"),
+    #            graph.get_tensor_by_name("convolution2d_1_b/read:0"),
+    #            graph.get_tensor_by_name("convolution2d_2_W/read:0"),
+    #            graph.get_tensor_by_name("convolution2d_2_b/read:0"),
+    #            graph.get_tensor_by_name("dense_1_W/read:0"),
+    #            graph.get_tensor_by_name("dense_1_b/read:0"),
+    #            graph.get_tensor_by_name("dense_2_W/read:0"),
+    #            graph.get_tensor_by_name("dense_2_b/read:0"),
+    #            ]
+    weights = all_vars[0:8]
+    weights_init = [network_params[i].assign(weights[i]) for i in range(len(weights))]
+
+    session.run(tf.global_variables_initializer())
+    session.run(weights_init)
+
     print "Restored model weights from ", flags.checkpoint_dir
-    monitor_env = gym.make(flags.game)
-    monitor_env.monitor.start(flags.eval_dir + "/" + flags.experiment + "/eval")
+    env = gym.make(flags.game)
+    monitor_env = gym.wrappers.Monitor(env, flags.eval_dir + flags.experiment, force=True)
 
     # Wrap env with AtariEnvironment helper class
     env = Atari_Environment(monitor_env, flags.scaled_width, flags.scaled_height, flags.agent_history_length)
+
 
     for i_episode in xrange(flags.num_eval_episodes):
         current_state = env.reset()
@@ -336,12 +365,13 @@ def evaluation(session, num_actions, graph_ops, saver):
         done = False
         while not done:
             monitor_env.render()
-            q_values = graph_ops["q_values"].eval(session=session, feed_dict={graph_ops["state"]: [current_state]})
-            action_index = np.argmax(q_values)
+            q_vals = q_values.eval(session=session, feed_dict={state: [current_state]})
+            #print q_vals
+            action_index = np.argmax(q_vals)
             next_state, reward, done, info = env.step(action_index)
             current_state = next_state
             episode_return += reward
-        print episode_return
+        print "Episode ", i_episode, " ended with Return = ", episode_return
     monitor_env.monitor.close()
 
 
@@ -356,14 +386,13 @@ def main(_):
     g = tf.Graph()
     with g.as_default(), tf.Session() as session:
         obs_space, num_actions = env_state_action_space()
-        graph_ops = initialize_graph_ops(num_actions)
-        saver = tf.train.Saver()
-
         K.set_session(session)
 
         if flags.testing:
-            evaluation(session, num_actions, graph_ops, saver)
+            evaluation(session, g, num_actions)
         else:
+            graph_ops = initialize_graph_ops(num_actions)
+            saver = tf.train.Saver()
             train(session, num_actions, graph_ops, saver)
 
 if __name__ == "__main__":
